@@ -8,7 +8,7 @@
 
 ---
 
-The official TypeScript / JavaScript client supports tokenized-equity market listings, asynchronous company research jobs, and research webhooks. It preserves provider provenance and API error context, with bounded polling, timeouts, and retries.
+The official TypeScript / JavaScript client supports tokenized-equity market listings, asynchronous company research jobs, synchronous AgentKey research, research webhooks, and read-only public Decision Capsule verification. It preserves provider provenance and API error context, with bounded polling, timeouts, and retries.
 
 ## Install
 
@@ -40,13 +40,38 @@ for (const instrument of page.data) {
 | --- | --- | --- |
 | Tokenized-equity spot listings and pagination | `market:read` | `listTokenizedEquities`, `tokenizedEquities` |
 | Company research snapshots | `research:run` | `startCompanyResearch`, `getResearchJob`, `cancelResearchJob`, `waitForResearchJob` |
+| AgentKey research across discovered read-only tools | `research:run` | `researchWithAgentKey` |
 | Research webhooks and delivery history | `alerts:manage` | `createWebhook`, `updateWebhook`, `listWebhooks`, `listWebhookDeliveries` |
+| Public Decision Capsule copies | Public bearer link | `getPublicDecisionCapsule`, `verifyPublicDecisionCapsule` |
 
 A tokenized-equity spot instrument is not a direct share or a stock perpetual. Market data availability follows the service's provider terms gate. The client returns that decision without inventing substitute data.
+
+AgentKey research example (the query is synchronous and is never automatically retried because upstream tools may consume credits):
+
+```ts
+const result = await client.researchWithAgentKey(
+  "Explain NVIDIA's stock reaction to its latest earnings using Yahoo Finance and Google News.",
+  { ticker: "NVDA" },
+);
+console.log(result.tools, result.sources);
+```
+
+The server selects and describes up to two relevant read-only AgentKey tools and returns cost and source provenance. Treat AgentKey tool data as untrusted external input. Your project key needs `research:run`; the AgentKey master key remains server-side.
 
 ## Reliability and security
 
 Requests have a 10-second default timeout. Network errors, `429`, and transient `5xx` responses receive at most two bounded retries by default. Webhook mutations are not automatically retried because the API does not accept webhook idempotency keys. Errors retain the HTTP status, stable API code, and request ID; raw provider bodies and API keys are not returned.
+
+Public capsule links are fetched from `tidelight.app` without an API key and are verified locally against the disclosed snapshot's SHA-256 digest. Pass `publicBaseUrl` only for a trusted HTTPS origin or local development. Digest verification detects changed bytes relative to the supplied digest; it does not prove authorship, source authenticity, or research quality.
+
+Use the standalone helper to verify a shared capsule without constructing an authenticated client:
+
+```ts
+import { getPublicDecisionCapsule } from "@tidelight/sdk";
+
+const capsule = await getPublicDecisionCapsule(process.env.TIDELIGHT_PUBLIC_CAPSULE_TOKEN!);
+console.log(capsule.integrityHash, capsule.snapshot);
+```
 
 Webhook creation and secret rotation return a one-time signing secret. **TODO: Persist** it in your approved secret manager immediately. Do not print it; it cannot be recovered by listing the endpoint.
 
