@@ -7,7 +7,7 @@
 
 ---
 
-官方 TypeScript / JavaScript 客户端支持代币化股票行情列表、异步公司研究任务和研究 Webhook。客户端保留数据提供方来源与 API 错误上下文，并采用有界轮询、超时和重试。
+官方 TypeScript / JavaScript 客户端支持代币化股票行情列表、异步公司研究任务、同步 AgentKey 研究、研究 Webhook 和只读公开决策胶囊验证。客户端保留数据提供方来源与 API 错误上下文，并采用有界轮询、超时和重试。
 
 ## 安装
 
@@ -39,15 +39,21 @@ for (const instrument of page.data) {
 | --- | --- | --- |
 | 代币化股票现货列表与分页 | `market:read` | `listTokenizedEquities`、`tokenizedEquities` |
 | 公司研究快照 | `research:run` | `startCompanyResearch`、`getResearchJob`、`cancelResearchJob`、`waitForResearchJob` |
+| 使用已发现的只读工具进行 AgentKey 研究 | `research:run` | `researchWithAgentKey` |
 | 研究 Webhook 与投递记录 | `alerts:manage` | `createWebhook`、`updateWebhook`、`listWebhooks`、`listWebhookDeliveries` |
+| 公开决策胶囊副本 | 公开持有者链接 | `getPublicDecisionCapsule`、`verifyPublicDecisionCapsule` |
 
 代币化股票现货交易工具并非直接持有的股票，也不是股票永续合约。行情数据是否可用取决于服务的数据提供方条款门控；客户端会原样返回该判断，不会编造替代数据。
+
+AgentKey 研究同步执行，因上游工具可能消耗积分而不会自动重试。服务端会发现并描述最多两个相关只读工具，并返回费用和来源信息。请将 AgentKey 数据视为不可信的外部信息并核实重要说法。Tidelight 项目密钥需要 `research:run` 权限；AgentKey 主密钥保留在服务端。
 
 ## 可靠性与安全
 
 默认请求超时时间为 10 秒。网络错误、`429` 和暂时性 `5xx` 响应默认最多进行两次有界重试。由于 API 不支持 Webhook 幂等键，Webhook 变更操作不会自动重试。错误对象保留 HTTP 状态、稳定的 API 错误代码和请求 ID，不会返回原始数据提供方响应正文或 API 密钥。
 
 创建 Webhook 或轮换密钥时会返回一次性签名密钥。**请立即将其保存到获批的密钥管理器中。** 不要打印该密钥；之后无法通过列出端点找回。
+
+公开胶囊链接从 `tidelight.app` 获取，不发送 API 密钥；SDK 会在本地根据已公开快照的 SHA-256 摘要进行验证。摘要验证只能检测相对于给定摘要的字节变化，不能证明作者身份、来源真实性或研究质量。
 
 ## 从源代码构建与测试
 
